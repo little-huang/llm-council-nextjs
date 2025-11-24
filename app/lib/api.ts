@@ -47,12 +47,39 @@ export const api = {
   },
 
   /**
+   * Load server-side defaults for council configuration.
+   */
+  async getConfig() {
+    const response = await fetch(`${API_BASE}/config`);
+    if (!response.ok) {
+      throw new Error('Failed to load configuration');
+    }
+    return response.json();
+  },
+
+  /**
+   * Fetch available models from OpenRouter via backend proxy.
+   */
+  async listModels() {
+    const response = await fetch(`${API_BASE}/models`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to load models');
+    }
+    return response.json();
+  },
+
+  /**
    * Send a message and receive streaming updates.
    */
   async sendMessageStream(
     conversationId: string,
     content: string,
-    onEvent: (eventType: string, event: any) => void
+    councilModels: Array<{ model: string; systemPrompt?: string }>,
+    chairmanModel: string,
+    onEvent: (eventType: string, event: any) => void,
+    signal?: AbortSignal
   ) {
     const response = await fetch(
       `${API_BASE}/conversations/${conversationId}/message/stream`,
@@ -61,7 +88,8 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, councilModels, chairmanModel }),
+        signal,
       }
     );
 

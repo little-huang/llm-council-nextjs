@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import SafeMarkdown from './SafeMarkdown';
 import './Stage1.css';
 
 interface Stage1Props {
@@ -37,7 +37,7 @@ export default function Stage1({ responses }: Stage1Props) {
       <div className="tab-content">
         <div className="model-name">{responses[activeTab].model}</div>
         <div className="response-text markdown-content">
-          <ReactMarkdown>{responses[activeTab].response}</ReactMarkdown>
+          <SafeMarkdown>{responses[activeTab].response}</SafeMarkdown>
         </div>
       </div>
     </div>

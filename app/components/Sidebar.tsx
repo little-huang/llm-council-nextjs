@@ -13,6 +13,7 @@ interface SidebarProps {
   currentConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
+  onOpenModelConfig: () => void;
 }
 
 export default function Sidebar({
@@ -20,14 +21,20 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onOpenModelConfig,
 }: SidebarProps) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
         <h1>LLM Council</h1>
-        <button className="new-conversation-btn" onClick={onNewConversation}>
-          + New Conversation
-        </button>
+        <div className="sidebar-actions">
+          <button className="new-conversation-btn" onClick={onNewConversation}>
+            + New Conversation
+          </button>
+          <button className="config-button" onClick={onOpenModelConfig}>
+            ⚙ 配置模型
+          </button>
+        </div>
       </div>
 
       <div className="conversation-list">
@@ -52,6 +59,7 @@ export default function Sidebar({
           ))
         )}
       </div>
+
     </div>
   );
 }

@@ -78,7 +78,7 @@ The script will:
 Create a `.env` or `.env.local` file:
 
 ```bash
-# Required
+# Required (validated at startup)
 OPENROUTER_API_KEY=sk-or-v1-your-api-key
 
 # Optional: Customize models (comma-separated)
@@ -93,7 +93,7 @@ CHAIRMAN_MODEL=openai/gpt-4o
 **Default Models:**
 ```typescript
 COUNCIL_MODELS = [
-    "openai/gpt-5.1-chat",
+    "deepseek/deepseek-v3.2-exp",
     "google/gemini-3-pro-preview",
     "anthropic/claude-sonnet-4.5",
     "x-ai/grok-4"
@@ -101,24 +101,15 @@ COUNCIL_MODELS = [
 CHAIRMAN_MODEL = 'openai/gpt-4o'
 ```
 
-**Recommended Configurations:**
-
-**Most Stable (OpenAI only):**
-```bash
-COUNCIL_MODELS=openai/gpt-4o,openai/gpt-4o-mini,openai/gpt-4-turbo,openai/gpt-3.5-turbo
-```
-
-**High Performance:**
-```bash
-COUNCIL_MODELS=openai/gpt-4o,anthropic/claude-3.5-sonnet,anthropic/claude-3-opus,meta-llama/llama-3.1-405b-instruct
-```
-
-**Budget-Friendly:**
-```bash
-COUNCIL_MODELS=openai/gpt-4o-mini,openai/gpt-3.5-turbo,anthropic/claude-3-haiku,meta-llama/llama-3.1-8b-instruct
-```
-
 View all available models at: https://openrouter.ai/models
+
+### Per-Conversation Model Settings
+
+- 通过侧边栏右上角的 `⚙ 配置模型` 按钮打开弹窗，可随时调整当前会话要参与的模型。
+- 模型列表直接来自 OpenRouter API，支持搜索/勾选，无需手动输入 ID（仍可保留已有的自定义模型 ID）。
+- 每个选定模型都可以填写独立的 System Prompt（作用于 Stage 1/Stage 2），用于约束语气或给出专长背景。
+- 可在同一弹窗中指定主席模型（若留空则使用默认 `CHAIRMAN_MODEL`），方便快速切换最终综合者。
+- 点击保存后立即生效；如果未做选择，则使用 `COUNCIL_MODELS` 与 `CHAIRMAN_MODEL` 环境变量中的默认值。
 
 ---
 
@@ -272,6 +263,8 @@ CHAIRMAN_MODEL=your-chairman
 - ✅ **TypeScript** - Full type safety
 - ✅ **Environment Config** - Easy model customization
 - ✅ **Docker Ready** - One-click deployment
+- ✅ **可视化模型配置** - 左侧面板实时增删模型并设置 system prompt
+- ✅ **OpenRouter 模型库接入** - 在弹窗中直接搜索/选择官方模型列表
 
 ---
 
@@ -397,6 +390,7 @@ This project was migrated from a FastAPI + Vite architecture to Next.js full-sta
 - Docker runs as non-root user
 - CORS configured for necessary domains only
 - No sensitive data in code
+- Markdown 渲染使用 `rehype-sanitize`，阻止响应内注入 HTML/JS
 
 ---
 

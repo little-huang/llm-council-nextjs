@@ -1,20 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import ModelConfigModal, {
+  ModelOption,
+} from './components/ModelConfigModal';
 import { api } from './lib/api';
 import './page.css';
+import type { ModelConfigInput } from './types/modelConfig';
+
+const generateId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+const createModelConfig = (overrides: Partial<ModelConfigInput> = {}): ModelConfigInput => ({
+  id: overrides.id ?? generateId(),
+  model: overrides.model ?? '',
+  systemPrompt: overrides.systemPrompt ?? '',
+});
 
 export default function Home() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [currentConversation, setCurrentConversation] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [modelConfigs, setModelConfigs] = useState<ModelConfigInput[]>([]);
+  const [chairmanModel, setChairmanModel] = useState<string | null>(null);
+  const [defaultChairmanModel, setDefaultChairmanModel] = useState<string>('openai/gpt-4o');
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const streamControllerRef = useRef<AbortController | null>(null);
 
-  // Load conversations on mount
+  // Load conversations and default models on mount
   useEffect(() => {
     loadConversations();
+    loadInitialModels();
+
+    return () => {
+      streamControllerRef.current?.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load conversation details when selected
@@ -30,6 +59,46 @@ export default function Home() {
       setConversations(convs);
     } catch (error) {
       console.error('Failed to load conversations:', error);
+    }
+  };
+
+  const loadInitialModels = async () => {
+    try {
+      const config = await api.getConfig();
+      const defaults =
+        config?.council_models?.map((cfg: any) =>
+          createModelConfig({
+            model: cfg.model,
+            systemPrompt: cfg.systemPrompt || '',
+          })
+        ) ?? [];
+      const fallbackChairman = config?.chairman_model || 'openai/gpt-4o';
+      setDefaultChairmanModel(fallbackChairman);
+      setChairmanModel(fallbackChairman);
+      setModelConfigs(
+        defaults.length > 0
+          ? defaults
+          : [createModelConfig({ model: 'openai/gpt-4o' })]
+      );
+    } catch (error) {
+      console.error('Failed to load council configuration:', error);
+      setModelConfigs((prev) =>
+        prev.length > 0 ? prev : [createModelConfig()]
+      );
+    }
+  };
+
+  const loadAvailableModels = async () => {
+    try {
+      setModelsError(null);
+      setIsModelsLoading(true);
+      const data = await api.listModels();
+      setAvailableModels(data.models || []);
+    } catch (error) {
+      console.error('Failed to load models:', error);
+      setModelsError('加载 OpenRouter 模型列表失败，请稍后重试');
+    } finally {
+      setIsModelsLoading(false);
     }
   };
 
@@ -56,20 +125,72 @@ export default function Home() {
   };
 
   const handleSelectConversation = (id: string) => {
+    if (id === currentConversationId) return;
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = null;
+    setIsLoading(false);
     setCurrentConversationId(id);
   };
 
+  const handleOpenModelConfig = () => {
+    setIsConfigModalOpen(true);
+    if (availableModels.length === 0 && !isModelsLoading) {
+      loadAvailableModels();
+    }
+  };
+
+  const handleCloseModelConfig = () => {
+    setIsConfigModalOpen(false);
+  };
+
+  const handleSaveModelConfigs = (data: {
+    configs: ModelConfigInput[];
+    chairmanModel: string | null;
+  }) => {
+    setModelConfigs(data.configs);
+    setChairmanModel(data.chairmanModel);
+    setIsConfigModalOpen(false);
+  };
+
   const handleSendMessage = async (content: string) => {
-    if (!currentConversationId) return;
+    if (!currentConversationId || !currentConversation) return;
+
+    const activeModels = modelConfigs
+      .map((cfg) => ({
+        model: cfg.model.trim(),
+        systemPrompt: cfg.systemPrompt.trim(),
+      }))
+      .filter((cfg) => cfg.model.length > 0)
+      .map((cfg) => ({
+        model: cfg.model,
+        systemPrompt: cfg.systemPrompt || undefined,
+      }));
+
+    if (activeModels.length === 0) {
+      alert('请至少配置一个模型');
+      return;
+    }
 
     setIsLoading(true);
+    const controller = new AbortController();
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = controller;
+
+    const activeChairmanModel =
+      chairmanModel && chairmanModel.trim().length > 0
+        ? chairmanModel.trim()
+        : defaultChairmanModel;
+
     try {
       // Optimistically add user message to UI
       const userMessage = { role: 'user', content };
-      setCurrentConversation((prev: any) => ({
-        ...prev,
-        messages: [...prev.messages, userMessage],
-      }));
+      setCurrentConversation((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, userMessage],
+        };
+      });
 
       // Create a partial assistant message that will be updated progressively
       const assistantMessage: any = {
@@ -86,99 +207,130 @@ export default function Home() {
       };
 
       // Add the partial assistant message
-      setCurrentConversation((prev: any) => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-      }));
+      setCurrentConversation((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: [...prev.messages, assistantMessage],
+        };
+      });
 
       // Send message with streaming
-      await api.sendMessageStream(currentConversationId, content, (eventType, event) => {
-        switch (eventType) {
-          case 'stage1_start':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage1 = true;
-              return { ...prev, messages };
-            });
-            break;
+      await api.sendMessageStream(
+        currentConversationId,
+        content,
+        activeModels,
+        activeChairmanModel,
+        (eventType, event) => {
+          switch (eventType) {
+            case 'stage1_start':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.loading.stage1 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage1_complete':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage1 = event.data;
-              lastMsg.loading.stage1 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage1_complete':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.stage1 = event.data;
+                lastMsg.loading.stage1 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage2_start':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage2 = true;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage2_start':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.loading.stage2 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage2_complete':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage2 = event.data;
-              lastMsg.metadata = event.metadata;
-              lastMsg.loading.stage2 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage2_complete':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.stage2 = event.data;
+                lastMsg.metadata = event.metadata;
+                lastMsg.loading.stage2 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage3_start':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage3 = true;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage3_start':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.loading.stage3 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage3_complete':
-            setCurrentConversation((prev: any) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage3 = event.data;
-              lastMsg.loading.stage3 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage3_complete':
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                if (!lastMsg) return prev;
+                lastMsg.stage3 = event.data;
+                lastMsg.loading.stage3 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'title_complete':
-            // Reload conversations to get updated title
-            loadConversations();
-            break;
+            case 'title_complete':
+              // Reload conversations to get updated title
+              loadConversations();
+              break;
 
-          case 'complete':
-            // Stream complete, reload conversations list
-            loadConversations();
-            setIsLoading(false);
-            break;
+            case 'complete':
+              // Stream complete, reload conversations list
+              loadConversations();
+              break;
 
-          case 'error':
-            console.error('Stream error:', event.message);
-            setIsLoading(false);
-            break;
+            case 'error':
+              console.error('Stream error:', event.message);
+              break;
 
-          default:
-            console.log('Unknown event type:', eventType);
-        }
-      });
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      // Remove optimistic messages on error
-      setCurrentConversation((prev: any) => ({
-        ...prev,
-        messages: prev.messages.slice(0, -2),
-      }));
+            default:
+              console.log('Unknown event type:', eventType);
+          }
+        },
+        controller.signal
+      );
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.warn('Stream aborted.');
+      } else {
+        console.error('Failed to send message:', error);
+        // Remove optimistic messages on error
+        setCurrentConversation((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.slice(0, -2),
+          };
+        });
+      }
+    } finally {
+      if (streamControllerRef.current === controller) {
+        streamControllerRef.current = null;
+      }
       setIsLoading(false);
     }
   };
@@ -190,11 +342,24 @@ export default function Home() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onOpenModelConfig={handleOpenModelConfig}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+      />
+      <ModelConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={handleCloseModelConfig}
+        onSave={handleSaveModelConfigs}
+        initialConfigs={modelConfigs}
+        availableModels={availableModels}
+        chairmanModel={chairmanModel}
+        defaultChairmanModel={defaultChairmanModel}
+        isLoading={isModelsLoading}
+        errorMessage={modelsError}
+        onRetryFetch={loadAvailableModels}
       />
     </div>
   );

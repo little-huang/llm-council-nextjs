@@ -12,6 +12,7 @@ export interface Message {
   stage1?: any[];
   stage2?: any[];
   stage3?: any;
+  metadata?: any;
 }
 
 export interface Conversation {
@@ -146,7 +147,8 @@ export function addAssistantMessage(
   conversationId: string,
   stage1: any[],
   stage2: any[],
-  stage3: any
+  stage3: any,
+  metadata: any
 ): void {
   /**
    * Add an assistant message with all 3 stages to a conversation.
@@ -161,6 +163,7 @@ export function addAssistantMessage(
     stage1,
     stage2,
     stage3,
+    metadata,
   });
 
   saveConversation(conversation);

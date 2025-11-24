@@ -2,12 +2,20 @@
  * 3-stage LLM Council orchestration.
  */
 
-import { queryModelsParallel, queryModel } from './openrouter';
-import { COUNCIL_MODELS, CHAIRMAN_MODEL } from './config';
+import { queryModelsParallel, queryModel, ModelTask } from './openrouter';
+import {
+  CHAIRMAN_MODEL,
+  RESOLVED_COUNCIL_MODEL_CONFIGS,
+} from './config';
 
 interface Message {
   role: string;
   content: string;
+}
+
+export interface CouncilModelConfig {
+  model: string;
+  systemPrompt?: string;
 }
 
 interface Stage1Result {
@@ -33,7 +41,8 @@ interface AggregateRanking {
 }
 
 export async function stage1CollectResponses(
-  userQuery: string
+  userQuery: string,
+  councilModels: CouncilModelConfig[]
 ): Promise<Stage1Result[]> {
   /**
    * Stage 1: Collect individual responses from all council models.
@@ -41,7 +50,12 @@ export async function stage1CollectResponses(
   const messages: Message[] = [{ role: 'user', content: userQuery }];
 
   // Query all models in parallel
-  const responses = await queryModelsParallel(COUNCIL_MODELS, messages);
+  const tasks: ModelTask[] = councilModels.map((modelConfig) => ({
+    model: modelConfig.model,
+    messages,
+    systemPrompt: modelConfig.systemPrompt,
+  }));
+  const responses = await queryModelsParallel(tasks);
 
   // Format results
   const stage1Results: Stage1Result[] = [];
@@ -59,7 +73,8 @@ export async function stage1CollectResponses(
 
 export async function stage2CollectRankings(
   userQuery: string,
-  stage1Results: Stage1Result[]
+  stage1Results: Stage1Result[],
+  councilModels: CouncilModelConfig[]
 ): Promise<{ rankings: Stage2Result[]; labelToModel: Record<string, string> }> {
   /**
    * Stage 2: Each model ranks the anonymized responses.
@@ -89,6 +104,7 @@ ${responsesText}
 Your task:
 1. First, evaluate each response individually. For each response, explain what it does well and what it does poorly.
 2. Then, at the very end of your response, provide a final ranking.
+3. IMPORTANT: Use the exact same language as the user's question shown above. Do not switch to any other language.
 
 IMPORTANT: Your final ranking MUST be formatted EXACTLY as follows:
 - Start with the line "FINAL RANKING:" (all caps, with colon)
@@ -112,7 +128,12 @@ Now provide your evaluation and ranking:`;
   const messages: Message[] = [{ role: 'user', content: rankingPrompt }];
 
   // Get rankings from all council models in parallel
-  const responses = await queryModelsParallel(COUNCIL_MODELS, messages);
+  const tasks: ModelTask[] = councilModels.map((modelConfig) => ({
+    model: modelConfig.model,
+    messages,
+    systemPrompt: modelConfig.systemPrompt,
+  }));
+  const responses = await queryModelsParallel(tasks);
 
   // Format results
   const stage2Results: Stage2Result[] = [];
@@ -134,7 +155,8 @@ Now provide your evaluation and ranking:`;
 export async function stage3SynthesizeFinal(
   userQuery: string,
   stage1Results: Stage1Result[],
-  stage2Results: Stage2Result[]
+  stage2Results: Stage2Result[],
+  chairmanOverride?: string
 ): Promise<Stage3Result> {
   /**
    * Stage 3: Chairman synthesizes final response.
@@ -164,21 +186,30 @@ Your task as Chairman is to synthesize all of this information into a single, co
 - Any patterns of agreement or disagreement
 
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:`;
+  const languageInstruction =
+    'IMPORTANT: Use the exact same language as the user\'s original question when writing your final answer.';
 
-  const messages: Message[] = [{ role: 'user', content: chairmanPrompt }];
+  const messages: Message[] = [
+    { role: 'user', content: `${chairmanPrompt}\n\n${languageInstruction}` },
+  ];
+
+  const effectiveChairman =
+    chairmanOverride?.trim().length
+      ? chairmanOverride.trim()
+      : CHAIRMAN_MODEL;
 
   // Query the chairman model
-  const response = await queryModel(CHAIRMAN_MODEL, messages);
+  const response = await queryModel(effectiveChairman, messages);
 
   if (response === null) {
     return {
-      model: CHAIRMAN_MODEL,
+      model: effectiveChairman,
       response: 'Error: Unable to generate final synthesis.',
     };
   }
 
   return {
-    model: CHAIRMAN_MODEL,
+    model: effectiveChairman,
     response: response.content,
   };
 }
@@ -292,7 +323,11 @@ Title:`;
 }
 
 export async function runFullCouncil(
-  userQuery: string
+  userQuery: string,
+  options?: {
+    councilModels?: CouncilModelConfig[];
+    chairmanModel?: string;
+  }
 ): Promise<{
   stage1: Stage1Result[];
   stage2: Stage2Result[];
@@ -306,7 +341,9 @@ export async function runFullCouncil(
    * Run the complete 3-stage council process.
    */
   // Stage 1: Collect individual responses
-  const stage1Results = await stage1CollectResponses(userQuery);
+  const councilModels = sanitizeCouncilModels(options?.councilModels);
+
+  const stage1Results = await stage1CollectResponses(userQuery, councilModels);
 
   // If no models responded successfully, return error
   if (stage1Results.length === 0) {
@@ -327,7 +364,8 @@ export async function runFullCouncil(
   // Stage 2: Collect rankings
   const { rankings: stage2Results, labelToModel } = await stage2CollectRankings(
     userQuery,
-    stage1Results
+    stage1Results,
+    councilModels
   );
 
   // Calculate aggregate rankings
@@ -340,7 +378,8 @@ export async function runFullCouncil(
   const stage3Result = await stage3SynthesizeFinal(
     userQuery,
     stage1Results,
-    stage2Results
+    stage2Results,
+    options?.chairmanModel
   );
 
   return {
@@ -352,5 +391,27 @@ export async function runFullCouncil(
       aggregate_rankings: aggregateRankings,
     },
   };
+}
+
+function sanitizeCouncilModels(
+  customModels?: CouncilModelConfig[]
+): CouncilModelConfig[] {
+  const source =
+    customModels && customModels.length > 0
+      ? customModels
+      : RESOLVED_COUNCIL_MODEL_CONFIGS;
+
+  const normalized = source
+    .map((cfg) => ({
+      model: cfg.model.trim(),
+      systemPrompt: cfg.systemPrompt?.trim() || undefined,
+    }))
+    .filter((cfg) => cfg.model.length > 0);
+
+  if (normalized.length === 0) {
+    throw new Error('At least one council model must be specified.');
+  }
+
+  return normalized;
 }
 

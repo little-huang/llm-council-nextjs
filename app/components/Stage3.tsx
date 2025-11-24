@@ -1,6 +1,6 @@
 'use client';
 
-import ReactMarkdown from 'react-markdown';
+import SafeMarkdown from './SafeMarkdown';
 import './Stage3.css';
 
 interface Stage3Props {
@@ -23,7 +23,7 @@ export default function Stage3({ finalResponse }: Stage3Props) {
           Chairman: {finalResponse.model.split('/')[1] || finalResponse.model}
         </div>
         <div className="final-text markdown-content">
-          <ReactMarkdown>{finalResponse.response}</ReactMarkdown>
+          <SafeMarkdown>{finalResponse.response}</SafeMarkdown>
         </div>
       </div>
     </div>

@@ -15,7 +15,10 @@ import {
   stage3SynthesizeFinal,
   calculateAggregateRankings,
   generateConversationTitle,
+  CouncilModelConfig,
 } from '@/lib/council';
+import { RESOLVED_COUNCIL_MODEL_CONFIGS } from '@/lib/config';
+import { z } from 'zod';
 
 // POST /api/conversations/[id]/message/stream
 export async function POST(
@@ -23,7 +26,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { content } = await request.json();
+    const body = await request.json();
+    const parsedBody = RequestBodySchema.safeParse(body);
+
+    if (!parsedBody.success) {
+      const message = parsedBody.error.issues
+        .map((issue) => issue.message)
+        .join('; ');
+      return new Response(
+        JSON.stringify({ error: `Invalid request body: ${message}` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { content, councilModels, chairmanModel } = parsedBody.data;
+    const activeCouncilModels = sanitizeCouncilModelsInput(councilModels);
+    const chairmanSelection = sanitizeChairmanModelInput(chairmanModel);
     const { id } = await params;
     const conversationId = id;
 
@@ -62,23 +80,36 @@ export async function POST(
 
           // Stage 1: Collect responses
           sendEvent('stage1_start');
-          const stage1Results = await stage1CollectResponses(content);
+          const stage1Results = await stage1CollectResponses(
+            content,
+            activeCouncilModels
+          );
           sendEvent('stage1_complete', { data: stage1Results });
 
           // Stage 2: Collect rankings
           sendEvent('stage2_start');
+          let metadata: {
+            label_to_model: Record<string, string>;
+            aggregate_rankings: any[];
+          } | null = null;
+
           const { rankings: stage2Results, labelToModel } =
-            await stage2CollectRankings(content, stage1Results);
+            await stage2CollectRankings(
+              content,
+              stage1Results,
+              activeCouncilModels
+            );
           const aggregateRankings = calculateAggregateRankings(
             stage2Results,
             labelToModel
           );
+          metadata = {
+            label_to_model: labelToModel,
+            aggregate_rankings: aggregateRankings,
+          };
           sendEvent('stage2_complete', {
             data: stage2Results,
-            metadata: {
-              label_to_model: labelToModel,
-              aggregate_rankings: aggregateRankings,
-            },
+            metadata,
           });
 
           // Stage 3: Synthesize final answer
@@ -86,7 +117,8 @@ export async function POST(
           const stage3Result = await stage3SynthesizeFinal(
             content,
             stage1Results,
-            stage2Results
+            stage2Results,
+            chairmanSelection
           );
           sendEvent('stage3_complete', { data: stage3Result });
 
@@ -102,7 +134,8 @@ export async function POST(
             conversationId,
             stage1Results,
             stage2Results,
-            stage3Result
+            stage3Result,
+            metadata
           );
 
           // Send completion event
@@ -133,5 +166,44 @@ export async function POST(
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
+}
+
+const CouncilModelSchema = z.object({
+  model: z.string().min(1, 'Model identifier cannot be empty.'),
+  systemPrompt: z.string().optional(),
+});
+
+const RequestBodySchema = z.object({
+  content: z.string().min(1, 'Message content cannot be empty.'),
+  councilModels: z.array(CouncilModelSchema).optional(),
+  chairmanModel: z.string().optional(),
+});
+
+function sanitizeCouncilModelsInput(
+  input?: CouncilModelConfig[]
+): CouncilModelConfig[] {
+  const source =
+    input && input.length > 0 ? input : RESOLVED_COUNCIL_MODEL_CONFIGS;
+
+  const normalized = source
+    .map((cfg) => ({
+      model: cfg.model.trim(),
+      systemPrompt: cfg.systemPrompt?.trim() || undefined,
+    }))
+    .filter((cfg) => cfg.model.length > 0);
+
+  if (normalized.length === 0) {
+    throw new Error('At least one council model must be provided.');
+  }
+
+  return normalized;
+}
+
+function sanitizeChairmanModelInput(input?: string | null): string | undefined {
+  const trimmed = input?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed;
 }
 

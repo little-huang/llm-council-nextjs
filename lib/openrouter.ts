@@ -14,14 +14,27 @@ interface ModelResponse {
   reasoning_details?: any;
 }
 
+interface QueryOptions {
+  timeout?: number;
+  systemPrompt?: string;
+}
+
+export interface ModelTask {
+  model: string;
+  messages: Message[];
+  timeout?: number;
+  systemPrompt?: string;
+}
+
 export async function queryModel(
   model: string,
   messages: Message[],
-  timeout: number = 120000
+  options: QueryOptions = {}
 ): Promise<ModelResponse | null> {
   /**
    * Query a single model via OpenRouter API.
    */
+  const timeout = options.timeout ?? 120000;
   const headers = {
     'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
     'Content-Type': 'application/json',
@@ -29,7 +42,9 @@ export async function queryModel(
 
   const payload = {
     model,
-    messages,
+    messages: options.systemPrompt
+      ? [{ role: 'system', content: options.systemPrompt }, ...messages]
+      : messages,
   };
 
   try {
@@ -63,19 +78,24 @@ export async function queryModel(
 }
 
 export async function queryModelsParallel(
-  models: string[],
-  messages: Message[]
+  tasks: ModelTask[]
 ): Promise<Record<string, ModelResponse | null>> {
   /**
    * Query multiple models in parallel.
    */
-  const tasks = models.map(model => queryModel(model, messages));
-  const responses = await Promise.all(tasks);
+  const responses = await Promise.all(
+    tasks.map((task) =>
+      queryModel(task.model, task.messages, {
+        timeout: task.timeout,
+        systemPrompt: task.systemPrompt,
+      })
+    )
+  );
 
   // Map models to their responses
   const result: Record<string, ModelResponse | null> = {};
-  models.forEach((model, index) => {
-    result[model] = responses[index];
+  tasks.forEach((task, index) => {
+    result[task.model] = responses[index];
   });
 
   return result;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import SafeMarkdown from './SafeMarkdown';
 import './Stage2.css';
 
 interface Stage2Props {
@@ -68,9 +68,9 @@ export default function Stage2({
           {rankings[activeTab].model}
         </div>
         <div className="ranking-content markdown-content">
-          <ReactMarkdown>
+          <SafeMarkdown>
             {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
-          </ReactMarkdown>
+          </SafeMarkdown>
         </div>
 
         {rankings[activeTab].parsed_ranking &&
