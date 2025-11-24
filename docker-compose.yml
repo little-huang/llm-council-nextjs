@@ -1,0 +1,16 @@
+services:
+  llm-council:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      # 可选：自定义模型配置（取消注释并修改）
+      # - COUNCIL_MODELS=${COUNCIL_MODELS:-openai/gpt-4o,openai/gpt-4o-mini,anthropic/claude-3.5-sonnet,meta-llama/llama-3.1-70b-instruct}
+      # - CHAIRMAN_MODEL=${CHAIRMAN_MODEL:-openai/gpt-4o}
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
