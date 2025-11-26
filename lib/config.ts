@@ -9,10 +9,9 @@ export const OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
 
 // Default models (can be overridden by environment variables)
 const DEFAULT_COUNCIL_MODELS = [
-  'deepseek/deepseek-v3.2-exp',
+  'openai/gpt-5.1',
   'google/gemini-3-pro-preview',
-  'anthropic/claude-sonnet-4.5',
-  'x-ai/grok-4',
+  'anthropic/claude-opus-4.5'
 ];
 
 const DEFAULT_CHAIRMAN_MODEL = 'google/gemini-3-pro-preview';
