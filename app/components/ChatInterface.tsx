@@ -160,7 +160,7 @@ export default function ChatInterface({
             className="send-button"
             disabled={!input.trim() || isLoading}
           >
-            Send
+            发送
           </button>
         </form>
       )}
