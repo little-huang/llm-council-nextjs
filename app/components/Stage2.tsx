@@ -92,9 +92,9 @@ export default function Stage2({
 
       {aggregateRankings && aggregateRankings.length > 0 && (
         <div className="aggregate-rankings">
-          <h4>Aggregate Rankings (Street Cred)</h4>
+          <h4>综合排名 (信誉值)</h4>
           <p className="stage-description">
-            Combined results across all peer evaluations (lower score is better):
+            综合结果来自所有模型互相评估（分数越低越好）：
           </p>
           <div className="aggregate-list">
             {aggregateRankings.map((agg, index) => (
@@ -104,10 +104,10 @@ export default function Stage2({
                   {agg.model.split('/')[1] || agg.model}
                 </span>
                 <span className="rank-score">
-                  Avg: {agg.average_rank.toFixed(2)}
+                  平均排名: {agg.average_rank.toFixed(2)}
                 </span>
                 <span className="rank-count">
-                  ({agg.rankings_count} votes)
+                  ({agg.rankings_count} 投票)
                 </span>
               </div>
             ))}
