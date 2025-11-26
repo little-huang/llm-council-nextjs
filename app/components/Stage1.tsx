@@ -20,7 +20,7 @@ export default function Stage1({ responses }: Stage1Props) {
 
   return (
     <div className="stage stage1">
-      <h3 className="stage-title">Stage 1: Individual Responses</h3>
+      <h3 className="stage-title"> 阶段 1: 模型单独回答</h3>
 
       <div className="tabs">
         {responses.map((resp, index) => (

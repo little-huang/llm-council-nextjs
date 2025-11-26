@@ -56,8 +56,8 @@ export default function ChatInterface({
           </button>
         </div>
         <div className="empty-state">
-          <h2>Welcome to LLM Council</h2>
-          <p>Create a new conversation to get started</p>
+          <h2>欢迎使用 LLM 委员会</h2>
+          <p>创建新对话以开始</p>
         </div>
       </div>
     );
@@ -77,15 +77,15 @@ export default function ChatInterface({
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
           <div className="empty-state">
-            <h2>Start a conversation</h2>
-            <p>Ask a question to consult the LLM Council</p>
+            <h2>开始对话</h2>
+            <p>提问以咨询 LLM 委员会</p>
           </div>
         ) : (
           conversation.messages.map((msg: any, index: number) => (
             <div key={index} className="message-group">
               {msg.role === 'user' ? (
                 <div className="user-message">
-                  <div className="message-label">You</div>
+                  <div className="message-label">你</div>
                   <div className="message-content">
                     <div className="markdown-content">
                       <SafeMarkdown>{msg.content}</SafeMarkdown>
@@ -94,13 +94,13 @@ export default function ChatInterface({
                 </div>
               ) : (
                 <div className="assistant-message">
-                  <div className="message-label">LLM Council</div>
+                  <div className="message-label">LLM 委员会</div>
 
                   {/* Stage 1 */}
                   {msg.loading?.stage1 && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
+                      <span>运行阶段 1: 收集单独回答...</span>
                     </div>
                   )}
                   {msg.stage1 && <Stage1 responses={msg.stage1} />}
@@ -109,7 +109,7 @@ export default function ChatInterface({
                   {msg.loading?.stage2 && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 2: Peer rankings...</span>
+                      <span>运行阶段 2: 模型互相评估...</span>
                     </div>
                   )}
                   {msg.stage2 && (
@@ -124,7 +124,7 @@ export default function ChatInterface({
                   {msg.loading?.stage3 && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 3: Final synthesis...</span>
+                      <span>运行阶段 3: 最终合成...</span>
                     </div>
                   )}
                   {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
@@ -137,7 +137,7 @@ export default function ChatInterface({
         {isLoading && (
           <div className="loading-indicator">
             <div className="spinner"></div>
-            <span>Consulting the council...</span>
+            <span>咨询委员会...</span>
           </div>
         )}
 
@@ -148,7 +148,7 @@ export default function ChatInterface({
         <form className="input-form" onSubmit={handleSubmit}>
           <textarea
             className="message-input"
-            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+            placeholder="提问... (Shift+Enter 换行, Enter 发送)"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

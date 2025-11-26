@@ -43,12 +43,12 @@ export default function Stage2({
 
   return (
     <div className="stage stage2">
-      <h3 className="stage-title">Stage 2: Peer Rankings</h3>
+      <h3 className="stage-title">阶段 2: 模型互相评估</h3>
 
-      <h4>Raw Evaluations</h4>
+      <h4>原始评估</h4>
       <p className="stage-description">
-        Each model evaluated all responses (anonymized as Response A, B, C, etc.) and provided rankings.
-        Below, model names are shown in <strong>bold</strong> for readability, but the original evaluation used anonymous labels.
+        每个模型评估了所有响应（匿名为 Response A, B, C, etc.）并提供了排名。
+        下面，模型名称以 <strong>粗体</strong> 显示，但原始评估使用了匿名标签。
       </p>
 
       <div className="tabs">

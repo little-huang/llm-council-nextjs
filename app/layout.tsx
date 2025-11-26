@@ -3,8 +3,8 @@ import { ThemeProvider } from './components/ThemeProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LLM Council',
-  description: 'Your LLM Council - Multiple AI models working together',
+  title: 'LLM 委员会',
+  description: 'LLM 委员会 - 多个 AI 模型协同工作',
 };
 
 export default function RootLayout({
