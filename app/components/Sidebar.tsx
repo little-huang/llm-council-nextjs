@@ -26,7 +26,7 @@ export default function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>LLM Council</h1>
+        <h1>LLM 委员会</h1>
         <div className="sidebar-actions">
           <button className="new-conversation-btn" onClick={onNewConversation}>
             + 新对话
