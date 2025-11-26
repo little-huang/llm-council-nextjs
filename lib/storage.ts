@@ -54,7 +54,7 @@ export function createConversation(conversationId: string): Conversation {
   const conversation: Conversation = {
     id: conversationId,
     created_at: new Date().toISOString(),
-    title: 'New Conversation',
+    title: '新对话',
     messages: [],
   };
 
@@ -112,7 +112,7 @@ export function listConversations(): ConversationMetadata[] {
       conversations.push({
         id: conv.id,
         created_at: conv.created_at,
-        title: conv.title || 'New Conversation',
+        title: conv.title || '新对话',
         message_count: conv.messages.length,
       });
     }
