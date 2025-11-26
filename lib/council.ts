@@ -42,7 +42,8 @@ interface AggregateRanking {
 
 export async function stage1CollectResponses(
   userQuery: string,
-  councilModels: CouncilModelConfig[]
+  councilModels: CouncilModelConfig[],
+  apiKey?: string
 ): Promise<Stage1Result[]> {
   /**
    * Stage 1: Collect individual responses from all council models.
@@ -64,7 +65,7 @@ export async function stage1CollectResponses(
       systemPrompt: finalSystemPrompt,
     };
   });
-  const responses = await queryModelsParallel(tasks);
+  const responses = await queryModelsParallel(tasks, apiKey);
 
   // Format results
   const stage1Results: Stage1Result[] = [];
@@ -83,7 +84,8 @@ export async function stage1CollectResponses(
 export async function stage2CollectRankings(
   userQuery: string,
   stage1Results: Stage1Result[],
-  councilModels: CouncilModelConfig[]
+  councilModels: CouncilModelConfig[],
+  apiKey?: string
 ): Promise<{ rankings: Stage2Result[]; labelToModel: Record<string, string> }> {
   /**
    * Stage 2: Each model ranks the anonymized responses.
@@ -142,7 +144,7 @@ Now provide your evaluation and ranking (in the same language as the Question):`
     messages,
     systemPrompt: modelConfig.systemPrompt,
   }));
-  const responses = await queryModelsParallel(tasks);
+  const responses = await queryModelsParallel(tasks, apiKey);
 
   // Format results
   const stage2Results: Stage2Result[] = [];
@@ -165,7 +167,8 @@ export async function stage3SynthesizeFinal(
   userQuery: string,
   stage1Results: Stage1Result[],
   stage2Results: Stage2Result[],
-  chairmanOverride?: string
+  chairmanOverride?: string,
+  apiKey?: string
 ): Promise<Stage3Result> {
   /**
    * Stage 3: Chairman synthesizes final response.
@@ -208,7 +211,7 @@ Provide a clear, well-reasoned final answer that represents the council's collec
       : CHAIRMAN_MODEL;
 
   // Query the chairman model
-  const response = await queryModel(effectiveChairman, messages);
+  const response = await queryModel(effectiveChairman, messages, { apiKey });
 
   if (response === null) {
     return {
@@ -297,7 +300,8 @@ export function calculateAggregateRankings(
 }
 
 export async function generateConversationTitle(
-  userQuery: string
+  userQuery: string,
+  apiKey?: string
 ): Promise<string> {
   /**
    * Generate a short title for a conversation based on the first user message.
@@ -312,7 +316,7 @@ Title:`;
   const messages: Message[] = [{ role: 'user', content: titlePrompt }];
 
   // Use a fast model for title generation
-  const response = await queryModel('openai/gpt-4o-mini', messages, { timeout: 30000 });
+  const response = await queryModel('openai/gpt-4o-mini', messages, { timeout: 30000, apiKey });
 
   if (response === null) {
     return '新对话';
@@ -336,6 +340,7 @@ export async function runFullCouncil(
   options?: {
     councilModels?: CouncilModelConfig[];
     chairmanModel?: string;
+    apiKey?: string;
   }
 ): Promise<{
   stage1: Stage1Result[];
@@ -351,8 +356,9 @@ export async function runFullCouncil(
    */
   // Stage 1: Collect individual responses
   const councilModels = sanitizeCouncilModels(options?.councilModels);
+  const apiKey = options?.apiKey;
 
-  const stage1Results = await stage1CollectResponses(userQuery, councilModels);
+  const stage1Results = await stage1CollectResponses(userQuery, councilModels, apiKey);
 
   // If no models responded successfully, return error
   if (stage1Results.length === 0) {
@@ -374,7 +380,8 @@ export async function runFullCouncil(
   const { rankings: stage2Results, labelToModel } = await stage2CollectRankings(
     userQuery,
     stage1Results,
-    councilModels
+    councilModels,
+    apiKey
   );
 
   // Calculate aggregate rankings
@@ -388,7 +395,8 @@ export async function runFullCouncil(
     userQuery,
     stage1Results,
     stage2Results,
-    options?.chairmanModel
+    options?.chairmanModel,
+    apiKey
   );
 
   return {

@@ -33,7 +33,16 @@ export default function Home() {
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [isModelsLoading, setIsModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
   const streamControllerRef = useRef<AbortController | null>(null);
+
+  // Load API key from localStorage on mount
+  useEffect(() => {
+    const savedApiKey = api.getApiKey();
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+  }, []);
 
   // Load conversations and default models on mount
   useEffect(() => {
@@ -88,15 +97,20 @@ export default function Home() {
     }
   };
 
-  const loadAvailableModels = async () => {
+  const loadAvailableModels = async (overrideApiKey?: string) => {
+    const effectiveApiKey = overrideApiKey || apiKey;
+    if (!effectiveApiKey) {
+      setModelsError('请先配置 API Key');
+      return;
+    }
     try {
       setModelsError(null);
       setIsModelsLoading(true);
-      const data = await api.listModels();
+      const data = await api.listModels(effectiveApiKey);
       setAvailableModels(data.models || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load models:', error);
-      setModelsError('加载 OpenRouter 模型列表失败，请稍后重试');
+      setModelsError(error.message || '加载 OpenRouter 模型列表失败，请稍后重试');
     } finally {
       setIsModelsLoading(false);
     }
@@ -134,7 +148,8 @@ export default function Home() {
 
   const handleOpenModelConfig = () => {
     setIsConfigModalOpen(true);
-    if (availableModels.length === 0 && !isModelsLoading) {
+    // Only load models if we have an API key and haven't loaded yet
+    if (apiKey && availableModels.length === 0 && !isModelsLoading) {
       loadAvailableModels();
     }
   };
@@ -146,14 +161,44 @@ export default function Home() {
   const handleSaveModelConfigs = (data: {
     configs: ModelConfigInput[];
     chairmanModel: string | null;
+    apiKey: string;
   }) => {
     setModelConfigs(data.configs);
     setChairmanModel(data.chairmanModel);
+    // Save API key to state and localStorage
+    if (data.apiKey !== apiKey) {
+      setApiKey(data.apiKey);
+      if (data.apiKey) {
+        api.saveApiKey(data.apiKey);
+      } else {
+        api.removeApiKey();
+      }
+    }
     setIsConfigModalOpen(false);
+  };
+
+  const handleApiKeyChange = (newApiKey: string) => {
+    setApiKey(newApiKey);
+    if (newApiKey) {
+      api.saveApiKey(newApiKey);
+      // Load models when API key is first set
+      if (availableModels.length === 0 && !isModelsLoading) {
+        loadAvailableModels(newApiKey);
+      }
+    } else {
+      api.removeApiKey();
+      setAvailableModels([]);
+    }
   };
 
   const handleSendMessage = async (content: string) => {
     if (!currentConversationId || !currentConversation) return;
+
+    if (!apiKey) {
+      alert('请先配置 OpenRouter API Key');
+      setIsConfigModalOpen(true);
+      return;
+    }
 
     const activeModels = modelConfigs
       .map((cfg) => ({
@@ -359,7 +404,9 @@ export default function Home() {
         defaultChairmanModel={defaultChairmanModel}
         isLoading={isModelsLoading}
         errorMessage={modelsError}
-        onRetryFetch={loadAvailableModels}
+        apiKey={apiKey}
+        onRetryFetch={() => loadAvailableModels()}
+        onApiKeyChange={handleApiKeyChange}
       />
     </div>
   );

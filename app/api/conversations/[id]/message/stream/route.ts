@@ -39,9 +39,10 @@ export async function POST(
       );
     }
 
-    const { content, councilModels, chairmanModel } = parsedBody.data;
+    const { content, councilModels, chairmanModel, apiKey } = parsedBody.data;
     const activeCouncilModels = sanitizeCouncilModelsInput(councilModels);
     const chairmanSelection = sanitizeChairmanModelInput(chairmanModel);
+    const effectiveApiKey = apiKey || undefined;
     const { id } = await params;
     const conversationId = id;
 
@@ -75,14 +76,15 @@ export async function POST(
           // Start title generation in parallel (don't await yet)
           let titlePromise: Promise<string> | null = null;
           if (isFirstMessage) {
-            titlePromise = generateConversationTitle(content);
+            titlePromise = generateConversationTitle(content, effectiveApiKey);
           }
 
           // Stage 1: Collect responses
           sendEvent('stage1_start');
           const stage1Results = await stage1CollectResponses(
             content,
-            activeCouncilModels
+            activeCouncilModels,
+            effectiveApiKey
           );
           sendEvent('stage1_complete', { data: stage1Results });
 
@@ -97,7 +99,8 @@ export async function POST(
             await stage2CollectRankings(
               content,
               stage1Results,
-              activeCouncilModels
+              activeCouncilModels,
+              effectiveApiKey
             );
           const aggregateRankings = calculateAggregateRankings(
             stage2Results,
@@ -118,7 +121,8 @@ export async function POST(
             content,
             stage1Results,
             stage2Results,
-            chairmanSelection
+            chairmanSelection,
+            effectiveApiKey
           );
           sendEvent('stage3_complete', { data: stage3Result });
 
@@ -177,6 +181,7 @@ const RequestBodySchema = z.object({
   content: z.string().min(1, 'Message content cannot be empty.'),
   councilModels: z.array(CouncilModelSchema).optional(),
   chairmanModel: z.string().optional(),
+  apiKey: z.string().optional(),
 });
 
 function sanitizeCouncilModelsInput(

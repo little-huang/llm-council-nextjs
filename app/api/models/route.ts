@@ -1,13 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { OPENROUTER_API_KEY } from '@/lib/config';
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Get API key from header or fall back to environment variable
+    const headerApiKey = request.headers.get('x-openrouter-api-key');
+    const effectiveApiKey = headerApiKey || OPENROUTER_API_KEY;
+
+    if (!effectiveApiKey) {
+      return NextResponse.json(
+        { error: 'No API key provided. Please configure your OpenRouter API key.' },
+        { status: 401 }
+      );
+    }
+
     const response = await fetch(OPENROUTER_MODELS_URL, {
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${effectiveApiKey}`,
         'Content-Type': 'application/json',
       },
       cache: 'no-store',

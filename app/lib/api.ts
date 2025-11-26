@@ -4,7 +4,34 @@
 
 const API_BASE = '/api';
 
+// localStorage key for API key
+const API_KEY_STORAGE_KEY = 'openrouter_api_key';
+
 export const api = {
+  /**
+   * Get API key from localStorage.
+   */
+  getApiKey(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(API_KEY_STORAGE_KEY);
+  },
+
+  /**
+   * Save API key to localStorage.
+   */
+  saveApiKey(apiKey: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  },
+
+  /**
+   * Remove API key from localStorage.
+   */
+  removeApiKey(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+  },
+
   /**
    * List all conversations.
    */
@@ -60,12 +87,24 @@ export const api = {
   /**
    * Fetch available models from OpenRouter via backend proxy.
    */
-  async listModels() {
+  async listModels(apiKey?: string) {
+    const headers: Record<string, string> = {
+      'Cache-Control': 'no-cache',
+    };
+    
+    // Use provided API key or get from localStorage
+    const effectiveApiKey = apiKey || this.getApiKey();
+    if (effectiveApiKey) {
+      headers['x-openrouter-api-key'] = effectiveApiKey;
+    }
+
     const response = await fetch(`${API_BASE}/models`, {
       cache: 'no-store',
+      headers,
     });
     if (!response.ok) {
-      throw new Error('Failed to load models');
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to load models');
     }
     return response.json();
   },
@@ -79,8 +118,12 @@ export const api = {
     councilModels: Array<{ model: string; systemPrompt?: string }>,
     chairmanModel: string,
     onEvent: (eventType: string, event: any) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    apiKey?: string
   ) {
+    // Use provided API key or get from localStorage
+    const effectiveApiKey = apiKey || this.getApiKey();
+
     const response = await fetch(
       `${API_BASE}/conversations/${conversationId}/message/stream`,
       {
@@ -88,7 +131,12 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content, councilModels, chairmanModel }),
+        body: JSON.stringify({ 
+          content, 
+          councilModels, 
+          chairmanModel,
+          apiKey: effectiveApiKey,
+        }),
         signal,
       }
     );

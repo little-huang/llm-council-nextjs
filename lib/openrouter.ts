@@ -17,6 +17,7 @@ interface ModelResponse {
 interface QueryOptions {
   timeout?: number;
   systemPrompt?: string;
+  apiKey?: string;
 }
 
 export interface ModelTask {
@@ -24,6 +25,16 @@ export interface ModelTask {
   messages: Message[];
   timeout?: number;
   systemPrompt?: string;
+  apiKey?: string;
+}
+
+// Get the effective API key (runtime override takes precedence)
+function getEffectiveApiKey(runtimeKey?: string): string {
+  const key = runtimeKey || OPENROUTER_API_KEY;
+  if (!key) {
+    throw new Error('No OpenRouter API key provided. Please configure your API key.');
+  }
+  return key;
 }
 
 export async function queryModel(
@@ -35,8 +46,9 @@ export async function queryModel(
    * Query a single model via OpenRouter API.
    */
   const timeout = options.timeout ?? 120000;
+  const effectiveApiKey = getEffectiveApiKey(options.apiKey);
   const headers = {
-    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+    'Authorization': `Bearer ${effectiveApiKey}`,
     'Content-Type': 'application/json',
   };
 
@@ -78,7 +90,8 @@ export async function queryModel(
 }
 
 export async function queryModelsParallel(
-  tasks: ModelTask[]
+  tasks: ModelTask[],
+  apiKey?: string
 ): Promise<Record<string, ModelResponse | null>> {
   /**
    * Query multiple models in parallel.
@@ -88,6 +101,7 @@ export async function queryModelsParallel(
       queryModel(task.model, task.messages, {
         timeout: task.timeout,
         systemPrompt: task.systemPrompt,
+        apiKey: task.apiKey || apiKey,
       })
     )
   );

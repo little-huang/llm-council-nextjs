@@ -4,8 +4,8 @@ import { env } from './env';
  * Configuration for the LLM Council.
  */
 
-// OpenRouter API key from environment
-export const OPENROUTER_API_KEY = env.OPENROUTER_API_KEY;
+// OpenRouter API key from environment (optional - can be provided via frontend)
+export const OPENROUTER_API_KEY = env.OPENROUTER_API_KEY || '';
 
 // Default models (can be overridden by environment variables)
 const DEFAULT_COUNCIL_MODELS = [

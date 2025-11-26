@@ -1,9 +1,8 @@
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  OPENROUTER_API_KEY: z
-    .string()
-    .min(1, 'OPENROUTER_API_KEY is required to run the council.'),
+  // OPENROUTER_API_KEY is now optional - can be provided via frontend
+  OPENROUTER_API_KEY: z.string().optional(),
   COUNCIL_MODELS: z.string().optional(),
   CHAIRMAN_MODEL: z.string().optional(),
 });

@@ -21,12 +21,15 @@ interface ModelConfigModalProps {
   defaultChairmanModel: string;
   isLoading: boolean;
   errorMessage?: string | null;
+  apiKey: string;
   onRetryFetch: () => void;
   onClose: () => void;
   onSave: (data: {
     configs: ModelConfigInput[];
     chairmanModel: string | null;
+    apiKey: string;
   }) => void;
+  onApiKeyChange: (apiKey: string) => void;
 }
 
 export default function ModelConfigModal({
@@ -37,23 +40,28 @@ export default function ModelConfigModal({
   chairmanModel,
   defaultChairmanModel,
   errorMessage,
+  apiKey,
   onRetryFetch,
   onClose,
   onSave,
+  onApiKeyChange,
 }: ModelConfigModalProps) {
   const [search, setSearch] = useState('');
   const [draftConfigs, setDraftConfigs] = useState<ModelConfigInput[]>(initialConfigs);
   const [draftChairman, setDraftChairman] = useState<string>(
     chairmanModel || ''
   );
+  const [draftApiKey, setDraftApiKey] = useState(apiKey);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setDraftConfigs(initialConfigs.map((cfg) => ({ ...cfg })));
       setDraftChairman(chairmanModel || '');
+      setDraftApiKey(apiKey);
       setSearch('');
     }
-  }, [initialConfigs, chairmanModel, isOpen]);
+  }, [initialConfigs, chairmanModel, apiKey, isOpen]);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -99,10 +107,25 @@ export default function ModelConfigModal({
       systemPrompt: cfg.systemPrompt.trim(),
     }));
     const normalizedChairman = draftChairman.trim();
+    const normalizedApiKey = draftApiKey.trim();
     onSave({
       configs: sanitized,
       chairmanModel: normalizedChairman.length > 0 ? normalizedChairman : null,
+      apiKey: normalizedApiKey,
     });
+  };
+
+  const handleClearApiKey = () => {
+    setDraftApiKey('');
+    onApiKeyChange('');
+  };
+
+  const handleApiKeyBlur = () => {
+    // Save API key on blur so it persists even without clicking Save
+    const trimmed = draftApiKey.trim();
+    if (trimmed !== apiKey) {
+      onApiKeyChange(trimmed);
+    }
   };
 
   const catalogModels = useMemo(
@@ -110,7 +133,7 @@ export default function ModelConfigModal({
     [availableModels]
   );
 
-  const disableSave = draftConfigs.length === 0;
+  const disableSave = draftConfigs.length === 0 || !draftApiKey.trim();
 
   if (!isOpen) {
     return null;
@@ -130,24 +153,85 @@ export default function ModelConfigModal({
         </div>
 
         <div className="modal-body">
+          {/* API Key Configuration Section */}
+          <div className="api-key-section">
+            <div className="api-key-header">
+              <h3>OpenRouter API Key</h3>
+              <p>
+                需要先配置 API Key 才能加载和使用模型。
+                <a 
+                  href="https://openrouter.ai/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="link-button"
+                  style={{ marginLeft: '8px' }}
+                >
+                  获取 API Key →
+                </a>
+              </p>
+            </div>
+            <div className="api-key-input-wrapper">
+              <input
+                className="api-key-input"
+                type={showApiKey ? 'text' : 'password'}
+                placeholder="sk-or-v1-..."
+                value={draftApiKey}
+                onChange={(e) => setDraftApiKey(e.target.value)}
+                onBlur={handleApiKeyBlur}
+              />
+              <button
+                type="button"
+                className="api-key-toggle"
+                onClick={() => setShowApiKey(!showApiKey)}
+                aria-label={showApiKey ? '隐藏' : '显示'}
+              >
+                {showApiKey ? '🙈' : '👁️'}
+              </button>
+              {draftApiKey && (
+                <button
+                  type="button"
+                  className="api-key-clear"
+                  onClick={handleClearApiKey}
+                  aria-label="清除 API Key"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {draftApiKey && (
+              <div className="api-key-status success">
+                ✓ API Key 已配置
+              </div>
+            )}
+            {!draftApiKey && (
+              <div className="api-key-status warning">
+                ⚠ 请输入您的 OpenRouter API Key
+              </div>
+            )}
+          </div>
+
           <div className="modal-controls">
             <input
               className="search-input"
               placeholder="搜索模型名称或 ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              disabled={isLoading}
+              disabled={isLoading || !draftApiKey}
             />
             <div className="modal-meta">
               已选择 {draftConfigs.length} 个模型
             </div>
           </div>
 
-          {isLoading && (
+          {!draftApiKey && (
+            <div className="modal-status">请先配置 API Key 以加载模型列表</div>
+          )}
+
+          {draftApiKey && isLoading && (
             <div className="modal-status">正在加载 OpenRouter 模型列表...</div>
           )}
 
-          {errorMessage && (
+          {draftApiKey && errorMessage && (
             <div className="modal-error">
               <span>{errorMessage}</span>
               <button className="link-button" onClick={onRetryFetch}>
@@ -156,7 +240,7 @@ export default function ModelConfigModal({
             </div>
           )}
 
-          {!isLoading && !errorMessage && (
+          {draftApiKey && !isLoading && !errorMessage && (
             <>
             <div className="modal-content">
               <div className="model-list">
