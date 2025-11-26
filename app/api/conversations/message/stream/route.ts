@@ -1,14 +1,9 @@
 /**
  * API route for streaming message responses.
+ * This route only handles LLM processing, storage is done client-side.
  */
 
 import { NextRequest } from 'next/server';
-import {
-  getConversation,
-  addUserMessage,
-  addAssistantMessage,
-  updateConversationTitle,
-} from '@/lib/storage';
 import {
   stage1CollectResponses,
   stage2CollectRankings,
@@ -20,11 +15,8 @@ import {
 import { RESOLVED_COUNCIL_MODEL_CONFIGS } from '@/lib/config';
 import { z } from 'zod';
 
-// POST /api/conversations/[id]/message/stream
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// POST /api/conversations/message/stream
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsedBody = RequestBodySchema.safeParse(body);
@@ -39,24 +31,10 @@ export async function POST(
       );
     }
 
-    const { content, councilModels, chairmanModel, apiKey } = parsedBody.data;
+    const { content, councilModels, chairmanModel, apiKey, generateTitle } = parsedBody.data;
     const activeCouncilModels = sanitizeCouncilModelsInput(councilModels);
     const chairmanSelection = sanitizeChairmanModelInput(chairmanModel);
     const effectiveApiKey = apiKey || undefined;
-    const { id } = await params;
-    const conversationId = id;
-
-    // Check if conversation exists
-    const conversation = getConversation(conversationId);
-    if (!conversation) {
-      return new Response(
-        JSON.stringify({ error: 'Conversation not found' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if this is the first message
-    const isFirstMessage = conversation.messages.length === 0;
 
     // Create a readable stream
     const encoder = new TextEncoder();
@@ -70,12 +48,9 @@ export async function POST(
         };
 
         try {
-          // Add user message
-          addUserMessage(conversationId, content);
-
-          // Start title generation in parallel (don't await yet)
+          // Start title generation in parallel if requested
           let titlePromise: Promise<string> | null = null;
-          if (isFirstMessage) {
+          if (generateTitle) {
             titlePromise = generateConversationTitle(content, effectiveApiKey);
           }
 
@@ -129,18 +104,8 @@ export async function POST(
           // Wait for title generation if it was started
           if (titlePromise) {
             const title = await titlePromise;
-            updateConversationTitle(conversationId, title);
             sendEvent('title_complete', { data: { title } });
           }
-
-          // Save complete assistant message
-          addAssistantMessage(
-            conversationId,
-            stage1Results,
-            stage2Results,
-            stage3Result,
-            metadata
-          );
 
           // Send completion event
           sendEvent('complete');
@@ -182,6 +147,7 @@ const RequestBodySchema = z.object({
   councilModels: z.array(CouncilModelSchema).optional(),
   chairmanModel: z.string().optional(),
   apiKey: z.string().optional(),
+  generateTitle: z.boolean().optional(),
 });
 
 function sanitizeCouncilModelsInput(

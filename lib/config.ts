@@ -48,6 +48,3 @@ export const CHAIRMAN_MODEL = env.CHAIRMAN_MODEL || DEFAULT_CHAIRMAN_MODEL;
 export const OPENROUTER_API_URL =
   'https://openrouter.ai/api/v1/chat/completions';
 
-// Data directory for conversation storage
-export const DATA_DIR = './data/conversations';
-

@@ -44,11 +44,11 @@ export default function Home() {
     }
   }, []);
 
-  // Load conversations and default models on mount
+  // Load conversations from IndexedDB and default models on mount
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Load conversations first
+        // Load conversations from IndexedDB
         const convs = await api.listConversations();
         setConversations(convs);
         
@@ -156,6 +156,7 @@ export default function Home() {
         ...conversations,
       ]);
       setCurrentConversationId(newConv.id);
+      setCurrentConversation(newConv);
       // Save to localStorage for persistence
       api.saveCurrentConversationId(newConv.id);
     } catch (error) {
@@ -253,7 +254,19 @@ export default function Home() {
         ? chairmanModel.trim()
         : defaultChairmanModel;
 
+    // Check if this is the first message
+    const isFirstMessage = currentConversation.messages.length === 0;
+
+    // Variables to collect stage results for local storage
+    let stage1Data: any[] = [];
+    let stage2Data: any[] = [];
+    let stage3Data: any = null;
+    let metadataData: any = null;
+
     try {
+      // Save user message to IndexedDB first
+      await api.addUserMessage(currentConversationId, content);
+
       // Optimistically add user message to UI
       const userMessage = { role: 'user', content };
       setCurrentConversation((prev: any) => {
@@ -289,7 +302,6 @@ export default function Home() {
 
       // Send message with streaming
       await api.sendMessageStream(
-        currentConversationId,
         content,
         activeModels,
         activeChairmanModel,
@@ -307,6 +319,7 @@ export default function Home() {
               break;
 
             case 'stage1_complete':
+              stage1Data = event.data;
               setCurrentConversation((prev: any) => {
                 if (!prev) return prev;
                 const messages = [...prev.messages];
@@ -330,6 +343,8 @@ export default function Home() {
               break;
 
             case 'stage2_complete':
+              stage2Data = event.data;
+              metadataData = event.metadata;
               setCurrentConversation((prev: any) => {
                 if (!prev) return prev;
                 const messages = [...prev.messages];
@@ -354,6 +369,7 @@ export default function Home() {
               break;
 
             case 'stage3_complete':
+              stage3Data = event.data;
               setCurrentConversation((prev: any) => {
                 if (!prev) return prev;
                 const messages = [...prev.messages];
@@ -366,12 +382,33 @@ export default function Home() {
               break;
 
             case 'title_complete':
-              // Reload conversations to get updated title
-              loadConversations();
+              // Update title in IndexedDB
+              api.updateConversationTitle(currentConversationId, event.data.title);
+              // Update local state
+              setCurrentConversation((prev: any) => {
+                if (!prev) return prev;
+                return { ...prev, title: event.data.title };
+              });
+              // Update conversations list
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === currentConversationId
+                    ? { ...c, title: event.data.title }
+                    : c
+                )
+              );
               break;
 
             case 'complete':
-              // Stream complete, reload conversations list
+              // Save assistant message to IndexedDB
+              api.addAssistantMessage(
+                currentConversationId,
+                stage1Data,
+                stage2Data,
+                stage3Data,
+                metadataData
+              );
+              // Update conversations list with new message count
               loadConversations();
               break;
 
@@ -383,21 +420,18 @@ export default function Home() {
               console.log('Unknown event type:', eventType);
           }
         },
-        controller.signal
+        {
+          signal: controller.signal,
+          generateTitle: isFirstMessage,
+        }
       );
     } catch (error: any) {
       if (error?.name === 'AbortError') {
         console.warn('Stream aborted.');
       } else {
         console.error('Failed to send message:', error);
-        // Remove optimistic messages on error
-        setCurrentConversation((prev: any) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            messages: prev.messages.slice(0, -2),
-          };
-        });
+        // Reload conversation from IndexedDB to get clean state
+        loadConversation(currentConversationId);
       }
     } finally {
       if (streamControllerRef.current === controller) {
@@ -439,4 +473,3 @@ export default function Home() {
     </div>
   );
 }
-

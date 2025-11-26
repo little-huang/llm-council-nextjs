@@ -1,12 +1,32 @@
 /**
  * API client for the LLM Council backend.
+ * Conversation data is stored locally in IndexedDB.
  */
+
+import {
+  listConversations as idbListConversations,
+  createConversation as idbCreateConversation,
+  getConversation as idbGetConversation,
+  saveConversation as idbSaveConversation,
+  addUserMessage as idbAddUserMessage,
+  addAssistantMessage as idbAddAssistantMessage,
+  updateConversationTitle as idbUpdateConversationTitle,
+  deleteConversation as idbDeleteConversation,
+  type Conversation,
+  type ConversationMetadata,
+} from './indexedDB';
 
 const API_BASE = '/api';
 
 // localStorage keys
 const API_KEY_STORAGE_KEY = 'openrouter_api_key';
 const CURRENT_CONVERSATION_KEY = 'current_conversation_id';
+
+// Generate unique ID
+const generateId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
 
 export const api = {
   /**
@@ -58,44 +78,66 @@ export const api = {
   },
 
   /**
-   * List all conversations.
+   * List all conversations from IndexedDB.
    */
-  async listConversations() {
-    const response = await fetch(`${API_BASE}/conversations`);
-    if (!response.ok) {
-      throw new Error('Failed to list conversations');
-    }
-    return response.json();
+  async listConversations(): Promise<ConversationMetadata[]> {
+    return idbListConversations();
   },
 
   /**
-   * Create a new conversation.
+   * Create a new conversation in IndexedDB.
    */
-  async createConversation() {
-    const response = await fetch(`${API_BASE}/conversations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to create conversation');
-    }
-    return response.json();
+  async createConversation(): Promise<Conversation> {
+    const conversationId = generateId();
+    return idbCreateConversation(conversationId);
   },
 
   /**
-   * Get a specific conversation.
+   * Get a specific conversation from IndexedDB.
    */
-  async getConversation(conversationId: string) {
-    const response = await fetch(
-      `${API_BASE}/conversations/${conversationId}`
-    );
-    if (!response.ok) {
-      throw new Error('Failed to get conversation');
-    }
-    return response.json();
+  async getConversation(conversationId: string): Promise<Conversation | null> {
+    return idbGetConversation(conversationId);
+  },
+
+  /**
+   * Save a conversation to IndexedDB.
+   */
+  async saveConversation(conversation: Conversation): Promise<void> {
+    return idbSaveConversation(conversation);
+  },
+
+  /**
+   * Delete a conversation from IndexedDB.
+   */
+  async deleteConversation(conversationId: string): Promise<void> {
+    return idbDeleteConversation(conversationId);
+  },
+
+  /**
+   * Add a user message to a conversation in IndexedDB.
+   */
+  async addUserMessage(conversationId: string, content: string): Promise<void> {
+    return idbAddUserMessage(conversationId, content);
+  },
+
+  /**
+   * Add an assistant message to a conversation in IndexedDB.
+   */
+  async addAssistantMessage(
+    conversationId: string,
+    stage1: any[],
+    stage2: any[],
+    stage3: any,
+    metadata: any
+  ): Promise<void> {
+    return idbAddAssistantMessage(conversationId, stage1, stage2, stage3, metadata);
+  },
+
+  /**
+   * Update conversation title in IndexedDB.
+   */
+  async updateConversationTitle(conversationId: string, title: string): Promise<void> {
+    return idbUpdateConversationTitle(conversationId, title);
   },
 
   /**
@@ -116,7 +158,7 @@ export const api = {
     const headers: Record<string, string> = {
       'Cache-Control': 'no-cache',
     };
-    
+
     // Use provided API key or get from localStorage
     const effectiveApiKey = apiKey || this.getApiKey();
     if (effectiveApiKey) {
@@ -136,33 +178,37 @@ export const api = {
 
   /**
    * Send a message and receive streaming updates.
+   * The streaming API now only handles LLM processing, not storage.
    */
   async sendMessageStream(
-    conversationId: string,
     content: string,
     councilModels: Array<{ model: string; systemPrompt?: string }>,
     chairmanModel: string,
     onEvent: (eventType: string, event: any) => void,
-    signal?: AbortSignal,
-    apiKey?: string
+    options?: {
+      signal?: AbortSignal;
+      apiKey?: string;
+      generateTitle?: boolean;
+    }
   ) {
     // Use provided API key or get from localStorage
-    const effectiveApiKey = apiKey || this.getApiKey();
+    const effectiveApiKey = options?.apiKey || this.getApiKey();
 
     const response = await fetch(
-      `${API_BASE}/conversations/${conversationId}/message/stream`,
+      `${API_BASE}/conversations/message/stream`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          content, 
-          councilModels, 
+        body: JSON.stringify({
+          content,
+          councilModels,
           chairmanModel,
           apiKey: effectiveApiKey,
+          generateTitle: options?.generateTitle,
         }),
-        signal,
+        signal: options?.signal,
       }
     );
 
@@ -198,4 +244,3 @@ export const api = {
     }
   },
 };
-
