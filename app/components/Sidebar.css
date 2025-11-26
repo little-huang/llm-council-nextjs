@@ -120,7 +120,7 @@
 }
 
 .conversation-item.active {
-  background: rgba(59, 130, 246, 0.1);
+  background: #FFF3E0;
   border-color: var(--accent-primary);
   color: var(--text-primary);
 }
