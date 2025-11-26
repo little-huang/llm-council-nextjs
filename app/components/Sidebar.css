@@ -59,14 +59,20 @@
   box-shadow: var(--shadow-md);
 }
 
-.new-conversation-btn:hover {
+.new-conversation-btn:hover:not(:disabled) {
   background: var(--accent-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-lg);
 }
 
-.new-conversation-btn:active {
+.new-conversation-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.new-conversation-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .config-button {
@@ -85,10 +91,15 @@
   gap: 6px;
 }
 
-.config-button:hover {
+.config-button:hover:not(:disabled) {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
   background: rgba(59, 130, 246, 0.05);
+}
+
+.config-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .conversation-list {
@@ -114,8 +125,28 @@
   color: var(--text-secondary);
 }
 
-.conversation-item:hover {
+.conversation-item:hover:not(.disabled) {
   background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.conversation-item.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.conversation-item.disabled.active {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.conversation-item.disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.conversation-item.disabled.active:hover {
+  background: #FFF3E0;
   color: var(--text-primary);
 }
 

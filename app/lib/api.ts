@@ -4,8 +4,9 @@
 
 const API_BASE = '/api';
 
-// localStorage key for API key
+// localStorage keys
 const API_KEY_STORAGE_KEY = 'openrouter_api_key';
+const CURRENT_CONVERSATION_KEY = 'current_conversation_id';
 
 export const api = {
   /**
@@ -30,6 +31,30 @@ export const api = {
   removeApiKey(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(API_KEY_STORAGE_KEY);
+  },
+
+  /**
+   * Get current conversation ID from localStorage.
+   */
+  getCurrentConversationId(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(CURRENT_CONVERSATION_KEY);
+  },
+
+  /**
+   * Save current conversation ID to localStorage.
+   */
+  saveCurrentConversationId(conversationId: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(CURRENT_CONVERSATION_KEY, conversationId);
+  },
+
+  /**
+   * Remove current conversation ID from localStorage.
+   */
+  removeCurrentConversationId(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(CURRENT_CONVERSATION_KEY);
   },
 
   /**

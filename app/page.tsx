@@ -46,7 +46,30 @@ export default function Home() {
 
   // Load conversations and default models on mount
   useEffect(() => {
-    loadConversations();
+    const initializeApp = async () => {
+      try {
+        // Load conversations first
+        const convs = await api.listConversations();
+        setConversations(convs);
+        
+        // Restore last selected conversation from localStorage
+        const savedConversationId = api.getCurrentConversationId();
+        if (savedConversationId) {
+          // Verify the saved conversation still exists
+          const conversationExists = convs.some((c: any) => c.id === savedConversationId);
+          if (conversationExists) {
+            setCurrentConversationId(savedConversationId);
+          } else {
+            // Clear invalid saved conversation ID
+            api.removeCurrentConversationId();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+      }
+    };
+    
+    initializeApp();
     loadInitialModels();
 
     return () => {
@@ -133,6 +156,8 @@ export default function Home() {
         ...conversations,
       ]);
       setCurrentConversationId(newConv.id);
+      // Save to localStorage for persistence
+      api.saveCurrentConversationId(newConv.id);
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
@@ -144,6 +169,8 @@ export default function Home() {
     streamControllerRef.current = null;
     setIsLoading(false);
     setCurrentConversationId(id);
+    // Save to localStorage for persistence
+    api.saveCurrentConversationId(id);
   };
 
   const handleOpenModelConfig = () => {
@@ -388,6 +415,7 @@ export default function Home() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onOpenModelConfig={handleOpenModelConfig}
+        isLoading={isLoading}
       />
       <ChatInterface
         conversation={currentConversation}

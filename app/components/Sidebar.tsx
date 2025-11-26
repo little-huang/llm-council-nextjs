@@ -14,6 +14,7 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
   onOpenModelConfig: () => void;
+  isLoading?: boolean;
 }
 
 export default function Sidebar({
@@ -22,16 +23,25 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
   onOpenModelConfig,
+  isLoading = false,
 }: SidebarProps) {
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isLoading ? 'sidebar-disabled' : ''}`}>
       <div className="sidebar-header">
         <h1>LLM 委员会</h1>
         <div className="sidebar-actions">
-          <button className="new-conversation-btn" onClick={onNewConversation}>
+          <button 
+            className="new-conversation-btn" 
+            onClick={onNewConversation}
+            disabled={isLoading}
+          >
             + 新对话
           </button>
-          <button className="config-button" onClick={onOpenModelConfig}>
+          <button 
+            className="config-button" 
+            onClick={onOpenModelConfig}
+            disabled={isLoading}
+          >
             ⚙ 配置模型
           </button>
         </div>
@@ -46,8 +56,8 @@ export default function Sidebar({
               key={conv.id}
               className={`conversation-item ${
                 conv.id === currentConversationId ? 'active' : ''
-              }`}
-              onClick={() => onSelectConversation(conv.id)}
+              } ${isLoading ? 'disabled' : ''}`}
+              onClick={() => !isLoading && onSelectConversation(conv.id)}
             >
               <div className="conversation-title">
                 {conv.title || '新对话'}
