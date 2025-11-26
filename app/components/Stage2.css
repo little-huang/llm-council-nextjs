@@ -23,7 +23,7 @@
 }
 
 .aggregate-rankings {
-  background: rgba(59, 130, 246, 0.1);
+  background: #FFF3E0;
   padding: 20px;
   border-radius: var(--radius-lg);
   margin-bottom: 24px;
@@ -142,7 +142,7 @@
   font-size: 12px;
   font-family: 'Menlo', monospace;
   margin-bottom: 12px;
-  background: rgba(59, 130, 246, 0.1);
+  background: #FFF3E0;
   display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
