@@ -174,6 +174,34 @@ export default function Home() {
     api.saveCurrentConversationId(id);
   };
 
+  const handleDeleteConversation = async (id: string) => {
+    try {
+      // Delete from IndexedDB
+      await api.deleteConversation(id);
+      
+      // Update conversations list
+      const updatedConversations = conversations.filter(c => c.id !== id);
+      setConversations(updatedConversations);
+      
+      // If we deleted the current conversation, clear selection or select another
+      if (id === currentConversationId) {
+        if (updatedConversations.length > 0) {
+          // Select the first available conversation
+          const nextId = updatedConversations[0].id;
+          setCurrentConversationId(nextId);
+          api.saveCurrentConversationId(nextId);
+        } else {
+          // No conversations left
+          setCurrentConversationId(null);
+          setCurrentConversation(null);
+          api.removeCurrentConversationId();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
+  };
+
   const handleOpenModelConfig = () => {
     setIsConfigModalOpen(true);
     // Only load models if we have an API key and haven't loaded yet
@@ -449,6 +477,7 @@ export default function Home() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onOpenModelConfig={handleOpenModelConfig}
+        onDeleteConversation={handleDeleteConversation}
         isLoading={isLoading}
       />
       <ChatInterface
