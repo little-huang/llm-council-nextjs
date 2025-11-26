@@ -67,16 +67,21 @@ export async function stage1CollectResponses(
   });
   const responses = await queryModelsParallel(tasks, apiKey);
 
-  // Format results
+  // Format results and log status for each model
   const stage1Results: Stage1Result[] = [];
   for (const [model, response] of Object.entries(responses)) {
     if (response !== null) {
+      console.log(`[Council Stage 1] ✓ ${model} responded successfully`);
       stage1Results.push({
         model,
         response: response.content,
       });
+    } else {
+      console.error(`[Council Stage 1] ✗ ${model} failed to respond`);
     }
   }
+  
+  console.log(`[Council Stage 1] ${stage1Results.length}/${councilModels.length} models responded`);
 
   return stage1Results;
 }

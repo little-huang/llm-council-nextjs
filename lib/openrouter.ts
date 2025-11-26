@@ -73,7 +73,16 @@ export async function queryModel(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Try to get detailed error message from response body
+      let errorDetail = '';
+      try {
+        const errorBody = await response.json();
+        errorDetail = errorBody.error?.message || JSON.stringify(errorBody);
+      } catch {
+        errorDetail = await response.text();
+      }
+      console.error(`[OpenRouter] Model ${model} failed with HTTP ${response.status}: ${errorDetail}`);
+      throw new Error(`HTTP ${response.status}: ${errorDetail}`);
     }
 
     const data = await response.json();
@@ -84,7 +93,7 @@ export async function queryModel(
       reasoning_details: message.reasoning_details,
     };
   } catch (error) {
-    console.error(`Error querying model ${model}:`, error);
+    console.error(`[OpenRouter] Error querying model ${model}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
