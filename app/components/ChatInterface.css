@@ -163,7 +163,7 @@
   gap: 12px;
   padding: 16px;
   margin: 12px 0;
-  background: rgba(30, 41, 59, 0.5);
+  background: #FFF3E0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
