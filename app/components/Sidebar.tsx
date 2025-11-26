@@ -39,7 +39,7 @@ export default function Sidebar({
 
       <div className="conversation-list">
         {conversations.length === 0 ? (
-          <div className="no-conversations">No conversations yet</div>
+          <div className="no-conversations">暂无对话</div>
         ) : (
           conversations.map((conv) => (
             <div
