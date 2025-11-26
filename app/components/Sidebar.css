@@ -245,14 +245,15 @@
 }
 
 .delete-confirm-dialog {
-  background: var(--bg-primary);
+  background: var(--bg-card);
   border-radius: var(--radius-lg);
   padding: 24px;
   max-width: 320px;
   width: 90%;
   text-align: center;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: scaleIn 0.2s ease;
+  border: 1px solid var(--border-color);
 }
 
 @keyframes scaleIn {
@@ -309,13 +310,13 @@
 }
 
 .delete-confirm-actions .cancel-btn {
-  background: var(--bg-secondary);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
 .delete-confirm-actions .cancel-btn:hover {
-  background: var(--bg-card-hover);
+  background: var(--border-color);
 }
 
 .delete-confirm-actions .confirm-btn {
