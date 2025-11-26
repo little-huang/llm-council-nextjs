@@ -29,7 +29,7 @@ export default function Sidebar({
         <h1>LLM Council</h1>
         <div className="sidebar-actions">
           <button className="new-conversation-btn" onClick={onNewConversation}>
-            + New Conversation
+            + 新对话
           </button>
           <button className="config-button" onClick={onOpenModelConfig}>
             ⚙ 配置模型
@@ -50,10 +50,10 @@ export default function Sidebar({
               onClick={() => onSelectConversation(conv.id)}
             >
               <div className="conversation-title">
-                {conv.title || 'New Conversation'}
+                {conv.title || '新对话'}
               </div>
               <div className="conversation-meta">
-                {conv.message_count} messages
+                {conv.message_count} 条消息
               </div>
             </div>
           ))

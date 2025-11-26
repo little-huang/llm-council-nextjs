@@ -67,7 +67,7 @@ export default function ChatInterface({
     <div className="chat-interface">
       <div className="chat-header">
         <div className="chat-title">
-          {conversation.title || 'New Conversation'}
+          {conversation.title || '新对话'}
         </div>
         <button className="theme-toggle-btn-header" onClick={toggleTheme}>
           {theme === 'light' ? '🌙' : '☀️'}

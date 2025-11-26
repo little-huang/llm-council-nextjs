@@ -315,7 +315,7 @@ Title:`;
   const response = await queryModel('openai/gpt-4o-mini', messages, { timeout: 30000 });
 
   if (response === null) {
-    return 'New Conversation';
+    return '新对话';
   }
 
   let title = response.content.trim();

@@ -15,7 +15,7 @@
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;
   --bg-input: #ffffff;
-  --bg-user-msg: #3b82f6;
+  --bg-user-msg: #FF9800;
 
   --border-color: #e2e8f0;
   --border-light: #cbd5e1;
@@ -25,8 +25,8 @@
   --text-muted: #94a3b8;
   --text-on-accent: #ffffff;
 
-  --accent-primary: #3b82f6;
-  --accent-hover: #2563eb;
+  --accent-primary: #FF9800;
+  --accent-hover: #F57C00;
   --accent-glow: rgba(59, 130, 246, 0.15);
 
   --success: #10b981;
